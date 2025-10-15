@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
 using namespace std;
 
 struct Usuario {
@@ -10,8 +11,127 @@ struct Usuario {
     double monto;
 };
 
-void menuAdmin(Usuario usuarios[], int &total);
-void menuUsuario(Usuario usuarios[], int indice, int total);
+string invertirBits(const string &bloque) {
+    string resultado = bloque;
+    for (char &c : resultado)
+        c = (c == '1') ? '0' : '1';
+    return resultado;
+}
+
+string decodificarMetodo1(const string &bits, int semilla) {
+    vector<string> bloques;
+    for (size_t i = 0; i < bits.size(); i += semilla)
+        bloques.push_back(bits.substr(i, semilla));
+
+    if (bloques.empty()) return "";
+
+    bloques[0] = invertirBits(bloques[0]);
+
+    for (size_t i = 1; i < bloques.size(); i++) {
+        int unos = 0, ceros = 0;
+        for (char c : bloques[i - 1]) {
+            if (c == '1') unos++;
+            else ceros++;
+        }
+
+        string bloque = bloques[i];
+
+        if (unos == ceros) {
+            bloque = invertirBits(bloque);
+        } 
+        else if (ceros > unos) {
+            for (int j = 1; j < (int)semilla; j += 2)
+                bloque[j] = (bloque[j] == '1') ? '0' : '1';
+        } 
+        else {
+            for (int j = 2; j < (int)semilla; j += 3)
+                bloque[j] = (bloque[j] == '1') ? '0' : '1';
+        }
+
+        bloques[i] = bloque;
+    }
+
+    string resultado;
+    for (auto &b : bloques) resultado += b;
+    return resultado;
+}
+
+string binarioATexto(const string &bits) {
+    string texto;
+    for (size_t i = 0; i + 7 < bits.size(); i += 8) {
+        string byte = bits.substr(i, 8);
+        char c = static_cast<char>(stoi(byte, nullptr, 2));
+        texto.push_back(c);
+    }
+    return texto;
+}
+
+string textoABinario(const string &texto) {
+    string bits;
+    for (unsigned char c : texto) {
+        for (int i = 7; i >= 0; i--)
+            bits += ((c >> i) & 1) ? '1' : '0';
+    }
+    return bits;
+}
+
+string codificarBloques(const string &bits, int semilla) {
+    vector<string> bloquesOriginales;
+    vector<string> bloquesCodificados;
+
+    // Separar en bloques de tamaño 'semilla'
+    for (size_t i = 0; i < bits.size(); i += semilla) {
+        string bloque = bits.substr(i, semilla);
+        bloquesOriginales.push_back(bloque);
+        bloquesCodificados.push_back(bloque);
+    }
+
+    if (bloquesOriginales.empty()) return "";
+
+    // --- Primer bloque: invertir todos los bits ---
+    bloquesCodificados[0] = invertirBits(bloquesCodificados[0]);
+
+    // --- Bloques siguientes ---
+    for (size_t i = 1; i < bloquesCodificados.size(); i++) {
+        int unos = 0, ceros = 0;
+
+        // Contar 1s y 0s en el bloque anterior ORIGINAL
+        for (char c : bloquesOriginales[i - 1]) {
+            if (c == '1') unos++;
+            else ceros++;
+        }
+
+        string bloque = bloquesCodificados[i];
+
+        if (unos == ceros) {
+            // Invertir todos los bits
+            bloque = invertirBits(bloque);
+        } 
+        else if (ceros > unos) {
+            // Invertir cada 2 bits
+            for (int j = 1; j < semilla && j < (int)bloque.size(); j += 2)
+                bloque[j] = (bloque[j] == '1') ? '0' : '1';
+        } 
+        else {
+            // Invertir cada 3 bits
+            for (int j = 2; j < semilla && j < (int)bloque.size(); j += 3)
+                bloque[j] = (bloque[j] == '1') ? '0' : '1';
+        }
+
+        bloquesCodificados[i] = bloque;
+    }
+
+    // --- Unir todos los bloques codificados ---
+    string resultado = "";
+    for (const string &b : bloquesCodificados)
+        resultado += b;
+
+    return resultado;
+}
+
+
+void menuAdmin(Usuario usuarios[], int &total); 
+void menuUsuario(Usuario usuarios[], int indice, int total); 
 void guardarUsuarios(Usuario usuarios[], int total);
 
 int main() {
@@ -23,7 +143,7 @@ int main() {
 
     Usuario usuarios[100];
     int total = 0;
-    char linea[150];
+    char linea[200];
 
     while (fgets(linea, sizeof(linea), archivo)) {
         linea[strcspn(linea, "\n")] = 0;
@@ -33,7 +153,16 @@ int main() {
 
         token = strtok(nullptr, ",");
         if (!token) continue;
-        strcpy(usuarios[total].password, token);
+        string passBinario = token;
+
+        // 🔹 Desencriptar y convertir binario a texto
+        string desencriptado = decodificarMetodo1(passBinario, 4); // semilla = 4
+        string textoPlano = binarioATexto(desencriptado);
+        //cout << "Usuario: " << usuarios[total].nombre 
+             //<< " | Password (bin): " << passBinario 
+             //<< "| Desencriptado: " << desencriptado
+             //<< " | Password (text): " << textoPlano << endl;
+        strcpy(usuarios[total].password, textoPlano.c_str());
 
         token = strtok(nullptr, ",");
         usuarios[total].monto = token ? atof(token) : 0;
@@ -58,12 +187,10 @@ int main() {
             strcmp(pass, usuarios[i].password) == 0) {
 
             encontrado = true;
-
-            if (strcmp(usuarios[i].nombre, "sborion") == 0) {
-                cout << "\nBienvenido Administrador " << usuarios[i].nombre << "!\n";
+            cout << "\nBienvenido " << usuarios[i].nombre << "!\n";
+            if (strcmp(user, "admin") == 0) {
                 menuAdmin(usuarios, total);
             } else {
-                cout << "\nBienvenido " << usuarios[i].nombre << "!\n";
                 menuUsuario(usuarios, i, total);
             }
             break;
@@ -183,9 +310,14 @@ void guardarUsuarios(Usuario usuarios[], int total) {
     }
 
     for (int i = 0; i < total; i++) {
+        // 🔹 Convertir password a binario y encriptar
+        string passTexto = usuarios[i].password;
+        string binario = textoABinario(passTexto);
+        string codificado = codificarBloques(binario, 4); // misma semilla que usas al leer
+
         fprintf(archivo, "%s,%s,%.2f\n",
                 usuarios[i].nombre,
-                usuarios[i].password,
+                codificado.c_str(),
                 usuarios[i].monto);
     }
 

@@ -15,6 +15,17 @@ string textoABinario_string(const string &texto) {
     return resultado;
 }
 
+// Convierte texto normal a bits (8 bits por carácter)
+string textoABinario(const string &texto) {
+    string bits;
+    for (unsigned char c : texto) {
+        for (int i = 7; i >= 0; i--)
+            bits += ((c >> i) & 1) ? '1' : '0';
+    }
+    return bits;
+}
+
+
 string separarEnBloques(const string &bits, int semilla) {
     string resultado = "";
     for (size_t i = 0; i < bits.size(); i += semilla)
