@@ -237,7 +237,11 @@ void menuAdmin(Usuario usuarios[], int &total) {
             cout << "Ingrese clave: ";
             cin.getline(nuevo.password, 50);
             cout << "Ingrese saldo inicial (COP): ";
-            cin >> nuevo.monto;
+            while (!(cin >> nuevo.monto)) {
+                cout << "Entrada inválida. Por favor, ingrese un número: ";
+                cin.clear();                // limpia el estado de error de cin
+                cin.ignore(10000, '\n');    // descarta la entrada no válida
+            }
             cin.ignore();
 
             usuarios[total++] = nuevo;
